@@ -582,17 +582,6 @@ XfNamespaceLocateBegin (
     }
 
     /*
-     * One special case: CondRefOf operator - we don't care if the name exists
-     * or not at this point, just ignore it, the point of the operator is to
-     * determine if the name exists at runtime.
-     */
-    if ((Op->Asl.Parent) &&
-        (Op->Asl.Parent->Asl.ParseOpcode == PARSEOP_CONDREFOF))
-    {
-        return_ACPI_STATUS (AE_OK);
-    }
-
-    /*
      * We must enable the "search-to-root" for single NameSegs, but
      * we have to be very careful about opening up scopes
      */
@@ -600,7 +589,8 @@ XfNamespaceLocateBegin (
     if ((Op->Asl.ParseOpcode == PARSEOP_NAMESTRING) ||
         (Op->Asl.ParseOpcode == PARSEOP_NAMESEG)    ||
         (Op->Asl.ParseOpcode == PARSEOP_METHODCALL) ||
-        (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL))
+        (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL)   ||
+        (Op->Asl.ParseOpcode == PARSEOP_CONDREFOF))
     {
         /*
          * These are name references, do not push the scope stack
@@ -665,7 +655,13 @@ XfNamespaceLocateBegin (
              * We didn't find the name reference by path -- we can qualify this
              * a little better before we print an error message
              */
-            if (strlen (Path) == ACPI_NAMESEG_SIZE)
+
+            if ((Op->Asl.Parent) &&
+                (Op->Asl.Parent->Asl.ParseOpcode == PARSEOP_CONDREFOF))
+            {
+                return_ACPI_STATUS (AE_OK);
+            }
+            else if (strlen (Path) == ACPI_NAMESEG_SIZE)
             {
                 /* A simple, one-segment ACPI name */
 
