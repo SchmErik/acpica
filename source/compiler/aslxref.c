@@ -1237,7 +1237,8 @@ XfNamespaceLocateBegin (
         Op->Asl.Parent->Asl.ParseOpcode != PARSEOP_CONDREFOF &&
         !XfRefIsGuardedByIfCondRefOf (Node, Op))
     {
-        AslError (ASL_ERROR, ASL_MSG_UNDEFINED_EXTERNAL, Op, NULL);
+        AslDualParseOpError (ASL_ERROR, ASL_MSG_UNDEFINED_EXTERNAL, Op, NULL,
+            ASL_MSG_EXTERNAL_FOUND_HERE, Node->Op, NULL);
     }
 
     /* 5) Check for a connection object */
