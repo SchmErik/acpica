@@ -989,21 +989,16 @@ FinishNode:
     Node->Op = Op;
 
     /*
-     * Set the actual data type if appropriate (EXTERNAL term only)
-     * As of 11/19/2019, ASL External() does not support parameter
-     * counts. When an External method is loaded, the parameter count is
-     * recorded in the external's arg count parameter. The parameter count may
-     * or may not be known in the declaration. If the value of this node turns
-     * out to be ASL_EXTERNAL_METHOD_UNKNOWN_PARAMS, it indicates that
-     * we do not know the parameter count and that we must look at the usage of
-     * the External method call to get this information.
+     * TODO: figure out how to simplify this code. Explore doing the object
+     * assignment as a part of the namespace load.
      */
-    if (ActualObjectType != ACPI_TYPE_ANY)
+    if (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL && (Node->Flags & ANOBJ_IS_EXTERNAL))
     {
         Node->Type = (UINT8) ActualObjectType;
         Node->Value = (UINT32)
             Op->Asl.Child->Asl.Next->Asl.Next->Asl.Value.Integer;
     }
+
 
     if (Op->Asl.ParseOpcode == PARSEOP_METHOD)
     {
@@ -1167,6 +1162,8 @@ LdAnalyzeExternals (
                 ASL_MSG_TYPE_MISMATCH_FOUND_HERE, ActualOp, NULL);
         }
     }
+
+    /* Set the object type of the external */
 
     if ((Node->Flags & ANOBJ_IS_EXTERNAL) &&
         (Op->Asl.ParseOpcode != PARSEOP_EXTERNAL))
