@@ -201,7 +201,6 @@ LdAnalyzeExternals (
     ACPI_NAMESPACE_NODE     *Node,
     ACPI_PARSE_OBJECT       *Op,
     ACPI_OBJECT_TYPE        ExternalOpType,
-    ACPI_OBJECT_TYPE        ObjectType,
     ACPI_WALK_STATE         *WalkState);
 
 
@@ -515,7 +514,6 @@ LdNamespace1Begin (
     ACPI_PARSE_OBJECT       *MethodOp;
     ACPI_STATUS             Status;
     ACPI_OBJECT_TYPE        ObjectType;
-    ACPI_OBJECT_TYPE        ActualObjectType = ACPI_TYPE_ANY;
     char                    *Path;
     UINT32                  Flags = ACPI_NS_NO_UPSEARCH;
     ACPI_PARSE_OBJECT       *Arg;
@@ -689,8 +687,7 @@ LdNamespace1Begin (
          *
          * first child is name, next child is ObjectType
          */
-        ActualObjectType = (UINT8) Op->Asl.Child->Asl.Next->Asl.Value.Integer;
-        ObjectType = ACPI_TYPE_ANY;
+        ObjectType = (UINT8) Op->Asl.Child->Asl.Next->Asl.Value.Integer;
 
         /*
          * We will mark every new node along the path as "External". This
@@ -709,7 +706,7 @@ LdNamespace1Begin (
          *       Store (\_SB_.PCI0.ABCD, Local0)
          *   }
          */
-        Flags |= ACPI_NS_EXTERNAL;
+        Flags |= ACPI_NS_EXTERNAL | ACPI_NS_DONT_OPEN_SCOPE;
         break;
 
     case PARSEOP_DEFAULT_ARG:
@@ -913,8 +910,7 @@ LdNamespace1Begin (
             else if ((Node->Flags & ANOBJ_IS_EXTERNAL) ||
                      (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL))
             {
-                Status = LdAnalyzeExternals (Node, Op, ActualObjectType,
-                    ObjectType, WalkState);
+                Status = LdAnalyzeExternals (Node, Op, ObjectType, WalkState);
                 if (ACPI_FAILURE (Status))
                 {
                     if (Status == AE_ERROR)
@@ -988,17 +984,12 @@ FinishNode:
     Op->Asl.Node = Node;
     Node->Op = Op;
 
-    /*
-     * TODO: figure out how to simplify this code. Explore doing the object
-     * assignment as a part of the namespace load.
-     */
-    if (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL && (Node->Flags & ANOBJ_IS_EXTERNAL))
+    if (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL &&
+        (Node->Flags & ANOBJ_IS_EXTERNAL))
     {
-        Node->Type = (UINT8) ActualObjectType;
         Node->Value = (UINT32)
             Op->Asl.Child->Asl.Next->Asl.Next->Asl.Value.Integer;
     }
-
 
     if (Op->Asl.ParseOpcode == PARSEOP_METHOD)
     {
@@ -1088,7 +1079,6 @@ LdMatchExternType (
  * PARAMETERS:  Node            - Node that represents the named object
  *              Op              - Named object declaring this named object
  *              ExternalOpType  - Type of ExternalOp
- *              ObjectType      - Type of Declared object
  *              WalkState       - Current WalkState
  *
  * RETURN:      Status
@@ -1106,7 +1096,6 @@ LdAnalyzeExternals (
     ACPI_NAMESPACE_NODE     *Node,
     ACPI_PARSE_OBJECT       *Op,
     ACPI_OBJECT_TYPE        ExternalOpType,
-    ACPI_OBJECT_TYPE        ObjectType,
     ACPI_WALK_STATE         *WalkState)
 {
     ACPI_STATUS             Status = AE_OK;
@@ -1130,7 +1119,7 @@ LdAnalyzeExternals (
     else
     {
         ActualExternalOpType = Node->Type;
-        ActualOpType = ObjectType;
+        ActualOpType = ExternalOpType;
     }
 
     if ((ActualOpType != ACPI_TYPE_ANY) &&
@@ -1173,13 +1162,13 @@ LdAnalyzeExternals (
          * previously declared External
          */
         Node->Flags &= ~ANOBJ_IS_EXTERNAL;
-        Node->Type = (UINT8) ObjectType;
+        Node->Type = (UINT8) ExternalOpType;
 
         /* Just retyped a node, probably will need to open a scope */
 
-        if (AcpiNsOpensScope (ObjectType))
+        if (AcpiNsOpensScope (ExternalOpType))
         {
-            Status = AcpiDsScopeStackPush (Node, ObjectType, WalkState);
+            Status = AcpiDsScopeStackPush (Node, ExternalOpType, WalkState);
             if (ACPI_FAILURE (Status))
             {
                 return (Status);
@@ -1200,7 +1189,7 @@ LdAnalyzeExternals (
     }
     else if ((Node->Flags & ANOBJ_IS_EXTERNAL) &&
              (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL) &&
-             (ObjectType == ACPI_TYPE_ANY))
+             (ExternalOpType == ACPI_TYPE_ANY))
     {
         /* Allow update of externals of unknown type. */
 
