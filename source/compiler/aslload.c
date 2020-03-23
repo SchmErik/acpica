@@ -519,6 +519,7 @@ LdNamespace1Begin (
     ACPI_PARSE_OBJECT       *Arg;
     UINT32                  i;
     BOOLEAN                 ForceNewScope = FALSE;
+    BOOLEAN                 AcutalObjectExists = FALSE;
     const ACPI_OPCODE_INFO  *OpInfo;
     ACPI_PARSE_OBJECT       *ParentOp;
     char                    *ExternalPath;
@@ -756,6 +757,10 @@ LdNamespace1Begin (
                         Op->Asl.ExternalName);
                 }
 
+                /* Assign the node to the Op and proceed. */
+
+                Node->Op = Op;
+
                 goto FinishNode;
             }
 
@@ -925,6 +930,13 @@ LdNamespace1Begin (
                     }
                     return_ACPI_STATUS (Status);
                 }
+
+                if (!(Node->Flags & ANOBJ_IS_EXTERNAL) &&
+                     (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL))
+                {
+                    AcutalObjectExists = TRUE;
+                }
+
             }
             else
             {
@@ -976,13 +988,25 @@ LdNamespace1Begin (
         }
     }
 
+    /*
+     * The only entry into the FinishNode label is when Op is PARSEOP_SCOPE.
+     * Scope doesn't create a namespace node. It only refers to it. Therefore,
+     * only assign the node's Op if Op is not a scope.
+     *
+     * This is also true if we are loading an external where the definition
+     * already exists.
+     */
+    if (!AcutalObjectExists)
+    {
+        Node->Op = Op;
+    }
+
 FinishNode:
     /*
      * Point the parse node to the new namespace node, and point
      * the Node back to the original Parse node
      */
     Op->Asl.Node = Node;
-    Node->Op = Op;
 
     if (Op->Asl.ParseOpcode == PARSEOP_EXTERNAL &&
         (Node->Flags & ANOBJ_IS_EXTERNAL))
